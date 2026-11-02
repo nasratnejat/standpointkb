@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StandpointKB — Perspicuous Rule Revision</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --panel: #ffffff; --line: #e3e6eb; --ink: #14213d; --muted: #66708a;
+    --accent: #0f8b8d; --accent-soft: #e2f3f3; --warn: #c2410c; --warn-soft: #fff1e8;
+    --ok: #15803d; --ok-soft: #e8f6ec; --bad: #b91c1c; --bad-soft: #fdecec;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --sp-star: #64748b; --sp-bund: #1e3a8a; --sp-sachsen: #15803d; --sp-dresden: #c2410c;
+    --sp-leipzig: #7c3aed; --sp-other: #0e7490;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: var(--sans); color: var(--ink); background: var(--bg); font-size: 14px; }
+  button { font: inherit; cursor: pointer; }
+  input, select, textarea { font: inherit; color: inherit; }
+
+  header { display: flex; align-items: center; gap: 24px; padding: 12px 20px; background: var(--panel);
+           border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  .brand h1 { margin: 0; font-size: 17px; letter-spacing: -0.01em; }
+  .brand p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+  #hier { flex: 1; display: flex; justify-content: center; }
+  .hdr-right { display: flex; gap: 8px; align-items: center; }
+  .pill { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+          font-size: 12px; font-weight: 600; border: 1px solid var(--line); background: #fff; }
+  .pill.bad { background: var(--bad-soft); color: var(--bad); border-color: #f5c2c2; }
+  .pill.ok { background: var(--ok-soft); color: var(--ok); border-color: #bfe3c9; }
+  .btn { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 6px 12px; }
+  .btn:hover { border-color: #c5cad3; }
+  .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn.primary:hover { filter: brightness(0.95); }
+  .btn.small { padding: 3px 8px; font-size: 12px; }
+  .btn:disabled { opacity: .5; cursor: default; }
+
+  main { display: grid; grid-template-columns: minmax(340px, 1fr) minmax(400px, 1.15fr) minmax(380px, 1.1fr);
+         gap: 14px; padding: 14px; height: calc(100vh - 62px); }
+  .col { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; display: flex;
+           flex-direction: column; min-height: 0; }
+  .panel.grow { flex: 1; }
+  .panel > h2 { margin: 0; padding: 12px 14px 10px; font-size: 13px; text-transform: uppercase;
+                letter-spacing: .06em; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .panel > h2 .spacer { flex: 1; }
+  .body { padding: 0 14px 14px; overflow: auto; }
+  .scroll { overflow: auto; flex: 1; }
+
+  .sp { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+        color: #fff; background: var(--sp-other); white-space: nowrap; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 10px; }
+  .chip { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 3px 10px; font-size: 12px; }
+  .chip.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .rule { border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; margin-bottom: 8px; background: #fff;
+          transition: box-shadow .15s, border-color .15s; }
+  .rule:hover { box-shadow: 0 2px 8px rgba(20,33,61,.06); }
+  .rule.conflict { border-color: #f1a7a7; background: #fffafa; box-shadow: inset 3px 0 0 var(--bad); }
+  .rule.flash { animation: flash 1.4s ease-out; }
+  @keyframes flash { from { background: var(--accent-soft); } to { background: #fff; } }
+  .rule .top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .rule .id { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--muted); }
+  .rule .acts { margin-left: auto; display: flex; gap: 4px; opacity: 0; transition: opacity .15s; }
+  .rule:hover .acts { opacity: 1; }
+  .rule .txt { font-family: var(--mono); font-size: 12.5px; line-height: 1.5; word-break: break-word; }
+  .rule .src { color: var(--muted); font-size: 11.5px; margin-top: 4px; }
+  .rule .src.ill { color: var(--warn); }
+  .iconbtn { border: none; background: transparent; color: var(--muted); padding: 2px 5px; border-radius: 5px; font-size: 12px; }
+  .iconbtn:hover { background: var(--bg); color: var(--ink); }
+  .warnicon { color: var(--bad); font-size: 12px; font-weight: 700; }
+
+  .addrule { border-top: 1px solid var(--line); padding: 10px 14px; display: grid; gap: 6px; }
+  .addrule textarea, .field { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; background: #fff; }
+  .addrule textarea { font-family: var(--mono); font-size: 12.5px; resize: vertical; min-height: 38px; }
+  .row { display: flex; gap: 6px; align-items: center; }
+  .hint { color: var(--muted); font-size: 11.5px; }
+
+  .cases { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin-bottom: 10px; }
+  .case { text-align: left; border: 1px solid var(--line); background: #fff; border-radius: 9px; padding: 7px 9px; }
+  .case b { display: block; font-size: 12.5px; }
+  .case span { color: var(--muted); font-size: 11.5px; line-height: 1.3; display: block; }
+  .case.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .facts { font-family: var(--mono); font-size: 12.5px; width: 100%; border: 1px solid var(--line);
+           border-radius: 8px; padding: 7px 9px; min-height: 52px; resize: vertical; }
+  label.lbl { display: block; font-size: 11.5px; font-weight: 600; color: var(--muted); margin: 10px 0 4px; text-transform: uppercase; letter-spacing: .05em; }
+  .ask { display: flex; gap: 6px; }
+  .ask input { flex: 1; font-family: var(--mono); font-size: 13px; }
+
+  .res { border: 1px solid var(--line); border-radius: 10px; margin-top: 8px; overflow: hidden; }
+  .res .head { display: flex; align-items: center; gap: 10px; padding: 9px 11px; cursor: pointer; background: #fff; }
+  .res .head:hover { background: #fafbfc; }
+  .verdict { font-weight: 700; font-size: 12px; padding: 3px 9px; border-radius: 6px; min-width: 82px; text-align: center; }
+  .v-YES { background: var(--ok-soft); color: var(--ok); }
+  .v-NO { background: #eef0f3; color: #3f4a5f; }
+  .v-CONFLICT { background: var(--bad-soft); color: var(--bad); }
+  .v-UNKNOWN { background: #f7f7f9; color: var(--muted); }
+  .modal { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .modal b { color: var(--ink); }
+  .res .detail { border-top: 1px solid var(--line); padding: 10px 12px; background: #fbfcfd; display: none; }
+  .res.open .detail { display: block; }
+  .banner { margin-top: 10px; padding: 9px 11px; border-radius: 9px; font-size: 13px; }
+  .banner.dis { background: #eef2ff; color: #3730a3; }
+  .banner.con { background: var(--bad-soft); color: var(--bad); display: flex; align-items: center; gap: 8px; }
+
+  .tree, .tree ul { list-style: none; margin: 0; padding-left: 16px; }
+  .tree { padding-left: 0; }
+  .tree li { position: relative; padding: 3px 0 3px 2px; }
+  .tree ul li::before { content: ""; position: absolute; left: -11px; top: 0; bottom: 0; border-left: 1px solid #cdd3dc; }
+  .tree ul li::after { content: ""; position: absolute; left: -11px; top: 13px; width: 9px; border-top: 1px solid #cdd3dc; }
+  .tree ul li:last-child::before { bottom: auto; height: 13px; }
+  .node { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 12px;
+          padding: 2px 7px; border-radius: 6px; background: #fff; border: 1px solid var(--line); }
+  .node.fact { background: #f3f4f6; }
+  .node.absent { background: #fff; border-style: dashed; color: var(--muted); }
+  .node.check { background: #fff; color: var(--muted); }
+  .node .rid { font-weight: 700; color: var(--muted); }
+  .node .sp { font-size: 10px; padding: 1px 6px; font-family: var(--sans); }
+  .expl { margin: 10px 0 0; padding-left: 18px; color: #2b3650; font-size: 12.5px; line-height: 1.55; }
+  .expl li:last-child { font-weight: 600; list-style: none; margin-left: -18px; margin-top: 4px; }
+
+  .matrix { border-collapse: separate; border-spacing: 3px; font-size: 12px; width: 100%; }
+  .matrix th { font-weight: 600; color: var(--muted); text-align: left; padding: 2px 4px; }
+  .matrix td { text-align: center; padding: 0; }
+  .cell { display: block; height: 22px; border-radius: 5px; background: var(--ok-soft); border: 1px solid #cdebd6; }
+  .cell.bad { background: var(--bad); border-color: var(--bad); cursor: pointer; color: #fff; font-weight: 700; line-height: 22px; }
+  .cell.bad:hover { filter: brightness(1.1); }
+
+  .empty { color: var(--muted); text-align: center; padding: 28px 10px; font-size: 13px; line-height: 1.5; }
+  .ra-title { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+  .ra-sub { color: var(--muted); font-size: 12.5px; margin-bottom: 10px; }
+  .two { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .side { border: 1px solid var(--line); border-radius: 9px; padding: 8px; background: #fbfcfd; overflow: auto; }
+  .side h4 { margin: 0 0 6px; font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .just { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0 4px; }
+  .just code { font-family: var(--mono); font-size: 11.5px; background: var(--bad-soft); color: var(--bad);
+               padding: 2px 6px; border-radius: 5px; }
+  .just code.f { background: #f1f2f4; color: var(--muted); }
+
+  .cand { border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; margin-top: 8px; background: #fff; }
+  .cand.rec { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .cand.inad { opacity: .55; }
+  .cand .top { display: flex; align-items: center; gap: 8px; }
+  .optag { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 2px 7px; border-radius: 5px; }
+  .op-weaken { background: #e0f2fe; color: #075985; }
+  .op-narrow { background: #ede9fe; color: #5b21b6; }
+  .op-detach { background: #fef3c7; color: #92400e; }
+  .op-remove { background: #fee2e2; color: #991b1b; }
+  .rectag { font-size: 11px; color: var(--accent); font-weight: 700; }
+  .cand .text { font-size: 13px; margin: 6px 0; }
+  .cand code { font-family: var(--mono); font-size: 12px; background: #f1f5f9; padding: 1px 5px; border-radius: 4px; }
+  .metrics { display: flex; gap: 12px; font-size: 11.5px; color: var(--muted); flex-wrap: wrap; }
+  .metrics b { color: var(--ink); }
+  .metrics .good { color: var(--ok); } .metrics .bad { color: var(--bad); }
+  details.lost { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+  details.lost summary { cursor: pointer; }
+  details.lost div { font-family: var(--mono); padding: 1px 0; }
+  .cand .act { margin-left: auto; }
+
+  .log { list-style: none; margin: 0; padding: 0 14px 12px; }
+  .log li { position: relative; padding: 4px 0 8px 18px; font-size: 12.5px; }
+  .log li::before { content: ""; position: absolute; left: 4px; top: 9px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+  .log li::after { content: ""; position: absolute; left: 7px; top: 18px; bottom: -2px; border-left: 1px solid var(--line); }
+  .log li:last-child::after { display: none; }
+  .log .v { font-family: var(--mono); font-weight: 700; color: var(--muted); margin-right: 4px; }
+  .log .why { color: var(--muted); font-style: italic; }
+
+  #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff;
+           padding: 9px 16px; border-radius: 9px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; }
+  #toast.show { opacity: 1; }
+  #toast.err { background: var(--bad); }
+  .llmbox { margin-top: 10px; padding: 10px 12px; border-radius: 9px; background: #f5f3ff; color: #3b2f7a; font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+  .disclaimer { color: var(--muted); font-size: 11px; padding: 6px 14px 10px; }
+  /* ---------- view switch ---------- */
+  .tabs { display: inline-flex; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
+  .tabs button { white-space: nowrap; border: none; background: transparent; padding: 6px 14px; border-radius: 8px; font-weight: 600; color: var(--muted); }
+  .tabs button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(20,33,61,.12); }
+  body.citizen #expertMain, body.citizen .expert-only { display: none !important; }
+  body:not(.citizen) #citizenMain { display: none; }
+  body:not(.citizen) .brand p { display: none; }
+  .btn { white-space: nowrap; }
+
+  /* ---------- citizen view ---------- */
+  #citizenMain { max-width: 1120px; margin: 0 auto; padding: 24px 20px 40px; display: grid;
+                 grid-template-columns: 360px 1fr; gap: 22px; align-items: start; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  .card h3 { margin: 0 0 4px; font-size: 18px; }
+  .card .sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; line-height: 1.45; }
+  .q { margin-bottom: 16px; }
+  .q > .ql { font-weight: 600; font-size: 13.5px; margin-bottom: 7px; display: block; }
+  .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .opt { border: 1px solid var(--line); background: #fff; border-radius: 9px; padding: 9px 10px; text-align: left; font-size: 13px; }
+  .opt .e { font-size: 17px; display: block; margin-bottom: 2px; }
+  .opt.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent); }
+  .money { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .money label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 3px; }
+  .money .wrap { position: relative; }
+  .money input { width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: 8px 26px 8px 10px; font-size: 14px; }
+  .money .wrap::after { content: "€"; position: absolute; right: 10px; top: 8px; color: var(--muted); }
+  .check { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13.5px; cursor: pointer; }
+  .check input { width: 17px; height: 17px; accent-color: var(--accent); }
+  .go { width: 100%; margin-top: 6px; padding: 11px; font-size: 15px; font-weight: 600; border-radius: 10px; }
+
+  .sum { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .sumbox { flex: 1; min-width: 120px; border-radius: 12px; padding: 12px 14px; border: 1px solid var(--line); background: #fff; }
+  .sumbox b { font-size: 24px; display: block; line-height: 1.1; }
+  .sumbox span { font-size: 12.5px; color: var(--muted); }
+  .sumbox.u b { color: var(--warn); } .sumbox.y b { color: var(--accent); } .sumbox.n b { color: #3f4a5f; }
+  .item { background: #fff; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+  .item .ih { display: flex; align-items: center; gap: 14px; padding: 14px 16px; }
+  .ic { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-size: 19px; flex: none; font-weight: 700; }
+  .item.yes .ic { background: var(--accent-soft); color: var(--accent); }
+  .item.no .ic { background: #eef0f3; color: #3f4a5f; }
+  .item.unclear { border-color: #f3c29b; }
+  .item.unclear .ic { background: var(--warn-soft); color: var(--warn); }
+  .item .iq { font-weight: 600; font-size: 14.5px; }
+  .item .ia { font-size: 13.5px; color: #3b465e; margin-top: 2px; line-height: 1.45; }
+  .item .ans { margin-left: auto; font-weight: 700; font-size: 13px; padding: 4px 12px; border-radius: 999px; white-space: nowrap; }
+  .item.yes .ans { background: var(--accent-soft); color: var(--accent); }
+  .item.no .ans { background: #eef0f3; color: #3f4a5f; }
+  .item.unclear .ans { background: var(--warn-soft); color: var(--warn); }
+  .item .todo { margin: 0 16px 12px 68px; padding: 9px 12px; border-radius: 9px; background: #f6faf9; font-size: 13px; color: #24524f; }
+  .item .note { margin: 0 16px 12px 68px; padding: 9px 12px; border-radius: 9px; background: #eef2ff; font-size: 13px; color: #3730a3; }
+  .item .foot { display: flex; gap: 14px; margin: 0 16px 12px 68px; }
+  .linkbtn { border: none; background: none; padding: 0; color: var(--accent); font-weight: 600; font-size: 13px; }
+  .linkbtn:hover { text-decoration: underline; }
+  .why { display: none; margin: 0 16px 14px 68px; border-left: 2px solid var(--line); padding-left: 14px; }
+  .item.open .why { display: block; }
+  .why h5 { margin: 8px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .step { position: relative; font-size: 13.5px; padding: 4px 0; line-height: 1.45; }
+  .step::before { content: ""; position: absolute; left: -19px; top: 11px; width: 8px; height: 8px; border-radius: 50%; background: #cdd3dc; }
+  .step.rule::before { background: var(--accent); }
+  .step .law { display: inline-block; margin-left: 6px; font-size: 11.5px; color: var(--muted); }
+  .step .law.ill { color: var(--warn); }
+  .nalist { color: var(--muted); font-size: 13px; padding: 4px 4px 0; line-height: 1.6; }
+  .cit-empty { text-align: center; color: var(--muted); padding: 60px 20px; font-size: 14px; line-height: 1.6; }
+  .cit-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+  .cit-head h3 { margin: 0; font-size: 20px; }
+  .fine { color: var(--muted); font-size: 12px; margin-top: 16px; line-height: 1.5; }
+  @media (max-width: 900px) { #citizenMain { grid-template-columns: 1fr; } }
+
+  @media (max-width: 1150px) { main { grid-template-columns: 1fr; height: auto; } .panel.grow { max-height: 80vh; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>StandpointKB</h1>
+    <p>Interactive revision of standpoint-labelled knowledge bases</p>
+  </div>
+  <div class="tabs">
+    <button id="tabCitizen" class="on">👤 Citizen view</button>
+    <button id="tabExpert">🛠 Expert view</button>
+  </div>
+  <div id="hier" class="expert-only"></div>
+  <div class="hdr-right">
+    <span id="conflictPill" class="pill expert-only">–</span>
+    <span class="pill" id="versionPill" title="version of the rule base">v1</span>
+    <button class="btn expert-only" id="undoBtn" title="Undo last revision">↶ Undo</button>
+    <button class="btn" id="resetBtn" title="Reload the example knowledge base">Reset</button>
+  </div>
+</header>
+
+<!-- ================= CITIZEN VIEW ================= -->
+<div id="citizenMain">
+  <div class="card">
+    <h3>What do I need to do?</h3>
+    <p class="sub">Answer four questions about your plans. You get a checklist of registrations and taxes, with the reason for each answer.</p>
+
+    <div class="q"><span class="ql">1 · What will you do?</span>
+      <div class="opts" id="workOpts">
+        <button class="opt on" data-work="software"><span class="e">💻</span>Software / IT</button>
+        <button class="opt" data-work="creative"><span class="e">🎨</span>Art, design, writing</button>
+        <button class="opt" data-work="goods"><span class="e">📦</span>Sell products</button>
+        <button class="opt" data-work="cafe"><span class="e">☕</span>Café / restaurant</button>
+        <button class="opt" data-work="other"><span class="e">🧩</span>Other freelance</button>
+      </div>
+    </div>
+
+    <div class="q"><span class="ql">2 · Where?</span>
+      <div class="opts" id="cityOpts"></div>
+    </div>
+
+    <div class="q"><span class="ql">3 · Expected money per year</span>
+      <div class="money">
+        <div><label>Revenue (income)</label><div class="wrap"><input id="cRevenue" type="number" min="0" step="1000" value="18000"></div></div>
+        <div><label>Profit (after costs)</label><div class="wrap"><input id="cProfit" type="number" min="0" step="1000" value="15000"></div></div>
+      </div>
+    </div>
+
+    <div class="q"><span class="ql">4 · Anything else?</span>
+      <label class="check"><input type="checkbox" id="cMoved" checked> I recently moved to this city</label>
+      <div id="cafeOnly" style="display:none">
+        <label class="check"><input type="checkbox" id="cAlcohol"> I will serve alcohol</label>
+        <label class="check"><input type="checkbox" id="cOutdoor"> I want tables outside</label>
+      </div>
+    </div>
+
+    <button class="btn primary go" id="cGo">Show my checklist</button>
+    <p class="fine">Research demo, not legal advice. Federal rules are simplified. City rules are invented examples.</p>
+  </div>
+
+  <div id="cResult"><div class="cit-empty">Fill in the form and press <b>Show my checklist</b>.</div></div>
+</div>
+
+<!-- ================= EXPERT VIEW ================= -->
+<main id="expertMain">
+  <!-- LEFT: knowledge base -->
+  <section class="col">
+    <div class="panel grow">
+      <h2>Knowledge base <span class="spacer"></span><span id="ruleCount" class="hint"></span></h2>
+      <div class="chips" id="spFilter"></div>
+      <div class="body scroll" id="rules"></div>
+      <div class="addrule">
+        <textarea id="newRule" rows="2" placeholder="freelancer(X) ∧ not freier_beruf(X) → must_register_gewerbe(X)"></textarea>
+        <div class="row">
+          <select id="newRuleSp" class="field" style="width:auto"></select>
+          <input id="newRuleSrc" class="field" placeholder="source (e.g. §14 GewO)">
+          <button class="btn primary" id="addRuleBtn">Add</button>
+        </div>
+        <div class="row" id="nlRow" style="display:none">
+          <input id="nlText" class="field" placeholder="Paste a regulation in plain German/English → rule (LLM)">
+          <button class="btn" id="nlBtn">Translate</button>
+        </div>
+        <div class="hint">Syntax: <code>∧</code> or <code>&amp;</code>, <code>→</code> or <code>-&gt;</code>, strong negation <code>¬p(X)</code>, exception <code>not p(X)</code>, comparisons <code>R &lt;= 25000</code></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CENTRE: query -->
+  <section class="col">
+    <div class="panel grow">
+      <h2>Query</h2>
+      <div class="body scroll">
+        <div class="cases" id="cases"></div>
+        <label class="lbl">Case facts</label>
+        <textarea class="facts" id="facts" spellcheck="false"></textarea>
+        <div class="row" style="justify-content:flex-end;margin-top:6px">
+          <input id="caseName" class="field" style="width:140px" placeholder="save as…">
+          <button class="btn small" id="saveCase">Save case</button>
+        </div>
+        <label class="lbl">Question</label>
+        <div class="ask">
+          <input id="goal" class="field" list="goalList" spellcheck="false" placeholder="must_register_gewerbe(nasrat)">
+          <datalist id="goalList"></datalist>
+          <button class="btn primary" id="askBtn">Ask every standpoint</button>
+        </div>
+        <div id="results"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT: revision -->
+  <section class="col">
+    <div class="panel">
+      <h2>Consistency · cases × standpoints</h2>
+      <div class="body" id="matrix"></div>
+    </div>
+    <div class="panel grow">
+      <h2>Revision assistant</h2>
+      <div class="body scroll" id="assistant">
+        <div class="empty">Click a red cell in the matrix, or a <b>CONFLICT</b> answer, to see the minimal conflict set and ranked repairs.</div>
+      </div>
+    </div>
+    <div class="panel" style="max-height: 24vh">
+      <h2>Revision log</h2>
+      <div class="scroll"><ul class="log" id="log"></ul></div>
+      <div class="disclaimer">Research demo, not legal advice. Federal rules simplified; city rules illustrative.</div>
+    </div>
+  </section>
+</main>
+<div id="toast"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let S = null;                 // server state
+let currentCase = "nasrat";
+let spFilter = null;
+let lastQuery = null;
+let flashIds = new Set();
+
+const SP_COLORS = { "*": "#64748b", bund: "#1e3a8a", sachsen: "#15803d", dresden: "#c2410c", leipzig: "#7c3aed" };
+const spColor = (s) => SP_COLORS[s] || (s.endsWith("_practice") ? "#a16207" : "#0e7490");
+const spBadge = (s) => `<span class="sp" style="background:${spColor(s)}">${esc(s === "*" ? "universal" : s)}</span>`;
+
+async function api(path, body) {
+  const r = await fetch(path, { method: body === undefined ? "GET" : "POST",
+    headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+function toast(msg, err = false) {
+  const t = $("#toast"); t.textContent = msg; t.className = "show" + (err ? " err" : "");
+  clearTimeout(t._h); t._h = setTimeout(() => t.className = "", 2600);
+}
+
+// ---------------------------------------------------------------- hierarchy
+function renderHierarchy() {
+  const sps = S.kb.standpoints;
+  const depth = {}; const byName = Object.fromEntries(sps.map(s => [s.name, s]));
+  const d = (n) => depth[n] ?? (depth[n] = n === "*" ? 0 : 1 + Math.max(...byName[n].parents.map(d)));
+  sps.forEach(s => d(s.name));
+  const levels = {}; sps.forEach(s => (levels[depth[s.name]] ??= []).push(s.name));
+  const maxD = Math.max(...Object.keys(levels).map(Number));
+  const colW = 118;
+  // horizontal layout: depth → x, siblings stacked vertically
+  const H = Math.max(...Object.values(levels).map(l => l.length)) * 24 + 4;
+  const pos = {};
+  Object.entries(levels).forEach(([lv, names]) => names.forEach((n, i) => {
+    pos[n] = { x: 4 + Number(lv) * colW, y: (H - names.length * 24) / 2 + i * 24 + 2 };
+  }));
+  let svg = `<svg width="${(maxD + 1) * colW}" height="${H}" style="overflow:visible">`;
+  sps.forEach(s => s.parents.forEach(p => {
+    const a = pos[p], b = pos[s.name];
+    svg += `<path d="M${a.x + 100} ${a.y + 10} C ${a.x + 110} ${a.y + 10}, ${b.x - 10} ${b.y + 10}, ${b.x} ${b.y + 10}" stroke="#c5cbd5" fill="none"/>`;
+  }));
+  sps.forEach(s => {
+    const p = pos[s.name], lab = s.name === "*" ? "universal *" : s.name;
+    svg += `<g><title>${esc(s.label)}</title><rect x="${p.x}" y="${p.y}" rx="10" width="100" height="20" fill="${spColor(s.name)}"/>
+            <text x="${p.x + 50}" y="${p.y + 14}" text-anchor="middle" font-size="11" font-weight="600" fill="#fff">${esc(lab)}</text></g>`;
+  });
+  svg += `</svg>`;
+  $("#hier").innerHTML = `<div style="display:flex;align-items:center;gap:10px"><span class="hint" style="white-space:nowrap" title="a standpoint inherits every rule of the broader standpoints to its left. ≼ = sharpening">broad → specific</span>${svg}</div>`;
+}
+
+// ---------------------------------------------------------------- rules
+function conflictRuleIds() {
+  return new Set(S.overview.conflicts.flatMap(c => c.rules));
+}
+function renderRules() {
+  const bad = conflictRuleIds();
+  const sps = S.kb.standpoints.map(s => s.name);
+  $("#spFilter").innerHTML = [`<button class="chip ${spFilter ? "" : "on"}" data-sp="">all</button>`]
+    .concat(sps.map(s => `<button class="chip ${spFilter === s ? "on" : ""}" data-sp="${esc(s)}">${esc(s === "*" ? "universal" : s)}</button>`)).join("");
+  const rules = S.kb.rules.filter(r => !spFilter || r.standpoint === spFilter);
+  $("#ruleCount").textContent = `${S.kb.rules.length} rules`;
+  $("#rules").innerHTML = rules.map(r => `
+    <div class="rule ${bad.has(r.id) ? "conflict" : ""} ${flashIds.has(r.id) ? "flash" : ""}" id="rule-${r.id}">
+      <div class="top">
+        <span class="id">${r.id}</span>${spBadge(r.standpoint)}
+        ${bad.has(r.id) ? `<span class="warnicon" title="part of a minimal conflict set">⚠ in conflict</span>` : ""}
+        <span class="acts">
+          <select class="iconbtn" data-move="${r.id}" title="move to standpoint">
+            <option value="">move…</option>${sps.filter(s => s !== r.standpoint).map(s => `<option>${esc(s)}</option>`).join("")}
+          </select>
+          <button class="iconbtn" data-del="${r.id}" title="remove rule">✕</button>
+        </span>
+      </div>
+      <div class="txt">${esc(r.text)}</div>
+      ${r.source ? `<div class="src ${r.source.startsWith("ILLUSTRATIVE") ? "ill" : ""}">${esc(r.source)}${r.note ? " · " + esc(r.note) : ""}</div>` : (r.note ? `<div class="src">${esc(r.note)}</div>` : "")}
+    </div>`).join("") || `<div class="empty">No rules in this standpoint.</div>`;
+  flashIds = new Set();
+  $("#newRuleSp").innerHTML = sps.map(s => `<option ${s === "dresden" ? "selected" : ""}>${esc(s)}</option>`).join("");
+}
+
+// ---------------------------------------------------------------- cases & query
+function renderCases() {
+  $("#cases").innerHTML = S.cases.map(c => `
+    <button class="case ${c.name === currentCase ? "on" : ""}" data-case="${esc(c.name)}"><b>${esc(c.name)}</b><span>${esc(c.label)}</span></button>`).join("");
+  const c = S.cases.find(c => c.name === currentCase) || S.cases[0];
+  if (!c) return;
+  currentCase = c.name;
+  if (document.activeElement !== $("#facts")) $("#facts").value = c.facts;
+  // goal suggestions: every head predicate instantiated with the case's main constant
+  const heads = [...new Set(S.kb.rules.map(r => r.head.replace(/^¬/, "").replace(/\(.*/, "")))].sort();
+  $("#goalList").innerHTML = heads.map(h => `<option value="${esc(h)}(${esc(c.name)})">`).join("");
+}
+
+function treeHTML(n) {
+  if (!n) return "";
+  let label;
+  if (n.kind === "rule") label = `<span class="node" title="${esc(n.rule)}${n.source ? "\n" + esc(n.source) : ""}">${esc(n.literal)} <span class="rid">${n.rule_id}</span>${spBadge(n.standpoint)}</span>`;
+  else if (n.kind === "fact") label = `<span class="node fact" title="case fact">${esc(n.literal)} <span class="rid">fact</span></span>`;
+  else if (n.kind === "absent") label = `<span class="node absent" title="exception does not apply: not derivable">${esc(n.literal)} ✓</span>`;
+  else label = `<span class="node check">${esc(n.literal)} ✓</span>`;
+  const kids = (n.children || []).map(treeHTML).join("");
+  return `<li>${label}${kids ? `<ul>${kids}</ul>` : ""}</li>`;
+}
+
+async function ask() {
+  const goal = $("#goal").value.trim();
+  if (!goal) return toast("Enter a question, e.g. must_register_gewerbe(nasrat)", true);
+  try {
+    await syncCaseFacts();
+    const q = await api("/api/query", { case: currentCase, goal });
+    lastQuery = q; renderResults();
+  } catch (e) { toast(e.message, true); }
+}
+
+function renderResults() {
+  const q = lastQuery; if (!q) { $("#results").innerHTML = ""; return; }
+  const box = q.results.map((r, i) => `
+    <div class="res ${r.verdict === "CONFLICT" ? "open" : ""}" data-i="${i}">
+      <div class="head">
+        ${spBadge(r.standpoint)}
+        <span class="verdict v-${r.verdict}">${{YES: "✓ YES", NO: "✗ NO", CONFLICT: "⚠ CONFLICT", UNKNOWN: "? OPEN"}[r.verdict]}</span>
+        <span class="modal" title="□ = necessarily, ◇ = possibly (according to this standpoint)">
+          □ <b>${r.necessarily ? "✓" : "–"}</b> &nbsp; ◇ <b>${r.possibly ? "✓" : "–"}</b></span>
+      </div>
+      <div class="detail">
+        ${r.proof ? `<div class="hint">Derivation of <code>${esc(q.goal)}</code></div><ul class="tree">${treeHTML(r.proof)}</ul>` : ""}
+        ${r.counter_proof ? `<div class="hint" style="margin-top:8px">Derivation of <code>¬${esc(q.goal)}</code></div><ul class="tree">${treeHTML(r.counter_proof)}</ul>` : ""}
+        <ol class="expl">${r.explanation.map(s => `<li>${esc(s)}</li>`).join("")}</ol>
+        ${r.verdict === "CONFLICT" ? `<button class="btn small primary" style="margin-top:8px" data-resolve="${esc(r.standpoint)}">Resolve in revision assistant →</button>` : ""}
+      </div>
+    </div>`).join("");
+  const conflicts = q.results.filter(r => r.verdict === "CONFLICT");
+  const banner = conflicts.length
+    ? `<div class="banner con">⚠ Standpoint${conflicts.length > 1 ? "s" : ""} <b>${conflicts.map(r => r.standpoint).join(", ")}</b> ${conflicts.length > 1 ? "are" : "is"} internally inconsistent for this case: both <code>${esc(q.goal)}</code> and its negation follow.</div>`
+    : q.disagreement ? `<div class="banner dis">Standpoints disagree — but each one is consistent. That is a legitimate difference of viewpoint, not an error.</div>` : "";
+  const llm = S.llm ? `<button class="btn small" id="llmExplain" style="margin-top:10px">Explain in plain language (LLM)</button><div id="llmOut"></div>` : "";
+  $("#results").innerHTML = `<label class="lbl">Answers per standpoint</label>${box}${banner}${llm}`;
+}
+
+async function syncCaseFacts() {
+  const c = S.cases.find(c => c.name === currentCase);
+  const txt = $("#facts").value.trim();
+  if (c && c.facts.trim() !== txt) {
+    S = await api("/api/case", { name: currentCase, facts: txt });
+    renderAll();
+  }
+}
+
+// ---------------------------------------------------------------- matrix
+function renderMatrix() {
+  const sps = S.kb.standpoints.map(s => s.name).filter(s => s !== "*");
+  const bad = {}; S.overview.conflicts.forEach(c => (bad[c.case + "|" + c.standpoint] ??= []).push(c));
+  let h = `<table class="matrix"><tr><th></th>${sps.map(s => `<th>${spBadge(s)}</th>`).join("")}</tr>`;
+  S.cases.forEach(c => {
+    h += `<tr><th>${esc(c.name)}</th>` + sps.map(s => {
+      const b = bad[c.name + "|" + s];
+      return `<td>${b ? `<span class="cell bad" data-conf="${esc(c.name)}|${esc(s)}|${esc(b[0].literal)}" title="${esc(b.map(x => x.literal).join(", "))}">!</span>` : `<span class="cell" title="consistent"></span>`}</td>`;
+    }).join("") + `</tr>`;
+  });
+  $("#matrix").innerHTML = h + `</table><div class="hint" style="margin-top:6px">Each cell: is standpoint <i>s</i> consistent for case <i>c</i>? Disagreement <i>between</i> standpoints is allowed; contradiction <i>within</i> one is not.</div>`;
+  const n = S.overview.n_conflicts;
+  $("#conflictPill").className = "pill expert-only " + (n ? "bad" : "ok");
+  $("#conflictPill").textContent = n ? `⚠ ${n} inconsistenc${n === 1 ? "y" : "ies"}` : "✓ consistent";
+  $("#versionPill").textContent = "KB v" + S.version;
+}
+
+// ---------------------------------------------------------------- assistant
+let lastSuggest = null;
+async function openConflict(caseName, sp, literal) {
+  try {
+    const s = await api("/api/suggest", { case: caseName, standpoint: sp, literal });
+    lastSuggest = s; renderAssistant();
+  } catch (e) { toast(e.message, true); }
+}
+
+function renderAssistant() {
+  const s = lastSuggest;
+  if (!s || !s.conflict) {
+    $("#assistant").innerHTML = `<div class="empty">${S.overview.n_conflicts ? "Click a red cell in the matrix to inspect a conflict." : "✓ No inconsistencies. Every standpoint is consistent for every stored case.<br><br>Try adding a rule that contradicts an existing one."}</div>`;
+    return;
+  }
+  const c = s.conflict;
+  const just = s.justifications.map(j => `<div class="just">${j.map(x => x.startsWith("F:") ? `<code class="f">${esc(x.slice(2))}</code>` : `<code>${esc(x)}</code>`).join("")}</div>`).join("");
+  const cands = s.candidates.map((k, i) => {
+    const t = k.op.type;
+    const text = esc(k.text).replace(/`([^`]+)`/g, "<code>$1</code>");
+    const m = k.error ? `<span class="bad">invalid: ${esc(k.error)}</span>` : `
+      <span>${k.resolves ? `<span class="good">✓ resolves</span>` : `<span class="bad">✗ does not resolve</span>`}</span>
+      ${k.new_conflicts.length ? `<span class="bad">+${k.new_conflicts.length} new conflict(s)</span>` : ""}
+      ${k.also_fixes.length ? `<span class="good">also fixes <b>${k.also_fixes.length}</b>: ${esc(k.also_fixes.map(x => x[0] + "@" + x[1]).join(", "))}</span>` : ""}
+      <span>lost consequences: <b>${k.n_lost}</b></span>`;
+    const lost = k.lost && k.lost.length ? `<details class="lost"><summary>what would no longer follow</summary>${k.lost.map(x => `<div>${esc(x[0])} @ ${esc(x[1])}: ${esc(x[2])}</div>`).join("")}</details>` : "";
+    return `<div class="cand ${k.recommended ? "rec" : ""} ${k.admissible ? "" : "inad"}">
+      <div class="top"><span class="optag op-${t}">${t}</span>${k.recommended ? `<span class="rectag">★ recommended</span>` : `<span class="hint">#${k.rank}</span>`}
+        <button class="btn small ${k.recommended ? "primary" : ""} act" data-apply="${i}" ${k.error ? "disabled" : ""}>Apply</button></div>
+      <div class="text">${text}</div><div class="metrics">${m}</div>${lost}</div>`;
+  }).join("");
+  $("#assistant").innerHTML = `
+    <div class="ra-title">Inconsistency in ${spBadge(c.standpoint)} for case <code>${esc(c.case)}</code></div>
+    <div class="ra-sub">Both <code>${esc(c.literal)}</code> and <code>¬${esc(c.literal)}</code> are derivable.</div>
+    <div class="two">
+      <div class="side"><h4>why it holds</h4><ul class="tree">${treeHTML(s.proof_pos)}</ul></div>
+      <div class="side"><h4>why its negation holds</h4><ul class="tree">${treeHTML(s.proof_neg)}</ul></div>
+    </div>
+    <label class="lbl">Minimal conflict set${s.justifications.length > 1 ? "s" : ""} (justification)</label>${just}
+    <div class="hint">Removing or changing any one rule in a minimal set breaks the contradiction. Each repair below was simulated on all ${S.cases.length} cases × ${S.kb.standpoints.length - 1} standpoints.</div>
+    <label class="lbl">Repairs, ranked (generality → minimal change → operator)</label>
+    <input id="reason" class="field" placeholder="reason for the log (optional)">
+    ${cands}
+    <div class="hint" style="margin-top:8px">${s.n_candidates} candidates generated.</div>`;
+}
+
+async function applyOp(op, reason = "") {
+  try {
+    const r = await api("/api/apply", { op, reason });
+    S = r; if (op.rule_id) flashIds.add(op.rule_id);
+    toast("Applied: " + r.applied.description);
+    lastSuggest = null;
+    renderAll();
+    if (op.rule_id) document.getElementById("rule-" + op.rule_id)?.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (lastQuery) await ask();
+    // jump to the next open conflict, if any
+    const next = S.overview.conflicts[0];
+    if (next) openConflict(next.case, next.standpoint, next.literal);
+  } catch (e) { toast(e.message, true); }
+}
+
+// ---------------------------------------------------------------- log
+function renderLog() {
+  $("#log").innerHTML = S.history.length ? S.history.slice().reverse().map(h =>
+    `<li><span class="v">v${h.version}</span>${esc(h.description)} ${h.reason ? `<span class="why">— ${esc(h.reason)}</span>` : ""}<span class="hint" style="float:right">${h.time}</span></li>`).join("")
+    : `<li style="color:var(--muted)">No revisions yet. KB v1 is the initial example.</li>`;
+  $("#undoBtn").disabled = !S.history.length;
+  $("#nlRow").style.display = S.llm ? "flex" : "none";
+}
+
+function renderAll() { renderHierarchy(); renderRules(); renderCases(); renderMatrix(); renderLog(); renderAssistant(); }
+
+// ---------------------------------------------------------------- events
+document.addEventListener("click", async (e) => {
+  const t = e.target.closest("[data-sp],[data-case],[data-del],[data-conf],[data-resolve],[data-apply],.res .head,#llmExplain");
+  if (!t) return;
+  if (t.dataset.sp !== undefined) { spFilter = t.dataset.sp || null; renderRules(); }
+  else if (t.dataset.case) { await syncCaseFacts().catch(() => {}); currentCase = t.dataset.case; $("#facts").value = ""; renderCases();
+    const g = $("#goal").value.replace(/\(([^)]*)\)$/, `(${currentCase})`); $("#goal").value = g || `must_register_gewerbe(${currentCase})`;
+    if (lastQuery) ask(); }
+  else if (t.dataset.del) applyOp({ type: "remove", rule_id: t.dataset.del }, "removed manually");
+  else if (t.dataset.conf) { const [c, s, l] = t.dataset.conf.split("|"); openConflict(c, s, l); }
+  else if (t.dataset.resolve) { const g = lastQuery.goal.replace(/^¬/, ""); openConflict(currentCase, t.dataset.resolve, g); }
+  else if (t.dataset.apply !== undefined) { const k = lastSuggest.candidates[+t.dataset.apply]; applyOp(k.op, $("#reason")?.value || ""); }
+  else if (t.id === "llmExplain") {
+    $("#llmOut").innerHTML = `<div class="llmbox">Thinking…</div>`;
+    try { const r = await api("/api/llm/explain", { question: lastQuery.goal, results: lastQuery.results });
+          $("#llmOut").innerHTML = `<div class="llmbox">${esc(r.text)}</div>`; }
+    catch (err) { $("#llmOut").innerHTML = `<div class="llmbox">${esc(err.message)}</div>`; }
+  }
+  else if (t.classList.contains("head")) t.parentElement.classList.toggle("open");
+});
+document.addEventListener("change", (e) => {
+  const t = e.target;
+  if (t.dataset.move && t.value) applyOp({ type: "move", rule_id: t.dataset.move, to: t.value }, "moved manually");
+});
+$("#askBtn").onclick = ask;
+$("#goal").addEventListener("keydown", (e) => { if (e.key === "Enter") ask(); });
+$("#addRuleBtn").onclick = () => {
+  const text = $("#newRule").value.trim(); if (!text) return;
+  applyOp({ type: "add_rule", text, standpoint: $("#newRuleSp").value, source: $("#newRuleSrc").value.trim() }, "added manually")
+    .then(() => { if (!document.querySelector("#toast.err")) { $("#newRule").value = ""; $("#newRuleSrc").value = ""; } });
+};
+$("#saveCase").onclick = async () => {
+  const name = $("#caseName").value.trim() || currentCase;
+  try { S = await api("/api/case", { name, facts: $("#facts").value, label: "custom case" }); currentCase = name; $("#caseName").value = ""; renderAll(); toast("Case saved: " + name); }
+  catch (e) { toast(e.message, true); }
+};
+$("#undoBtn").onclick = async () => { const r = await api("/api/undo", {}); S = r; lastSuggest = null; renderAll(); if (lastQuery) ask(); toast(r.undone ? "Undone: " + r.undone.description : "Nothing to undo"); };
+$("#resetBtn").onclick = async () => { S = await api("/api/reset", {}); lastSuggest = null; lastQuery = null; currentCase = "nasrat"; renderAll(); renderResults(); renderCityOpts(); if (C.last) await citizenRun(); toast("Example knowledge base reloaded"); };
+$("#nlBtn").onclick = async () => {
+  const text = $("#nlText").value.trim(); if (!text) return;
+  $("#nlBtn").disabled = true; $("#nlBtn").textContent = "…";
+  try { const p = await api("/api/llm/nl2rule", { text });
+        $("#newRule").value = p.rule; $("#newRuleSp").value = p.standpoint; $("#newRuleSrc").value = p.source || "";
+        toast(`Proposed rule (confidence ${p.confidence ?? "?"}) — review, then Add`); }
+  catch (e) { toast(e.message, true); }
+  finally { $("#nlBtn").disabled = false; $("#nlBtn").textContent = "Translate"; }
+};
+
+// ================================================================ citizen view
+const C = { work: "software", city: "dresden", last: null };
+const CITY_EMOJI = { dresden: "🏰", leipzig: "🦁" };
+
+function setView(v) {
+  document.body.classList.toggle("citizen", v === "citizen");
+  $("#tabCitizen").classList.toggle("on", v === "citizen");
+  $("#tabExpert").classList.toggle("on", v !== "citizen");
+  history.replaceState(null, "", v === "citizen" ? "#" : "#expert");
+  if (v === "citizen" && C.last) citizenRun();
+}
+
+function renderCityOpts() {
+  const cities = S.kb.standpoints.map(s => s.name)
+    .filter(n => n !== "*" && !n.includes("_practice") && !S.kb.standpoints.some(s => s.parents.includes(n)));
+  if (!cities.includes(C.city)) C.city = cities[0];
+  $("#cityOpts").innerHTML = cities.map(c => {
+    const lab = (S.kb.standpoints.find(s => s.name === c).label || c).replace(/\s*\((city|state|federal)\)$/, "");
+    return `<button class="opt ${c === C.city ? "on" : ""}" data-city="${esc(c)}"><span class="e">${CITY_EMOJI[c] || "📍"}</span>${esc(lab)}</button>`;
+  }).join("");
+}
+
+function citizenProfile() {
+  return { work: C.work, revenue: $("#cRevenue").value, profit: $("#cProfit").value,
+           moved: $("#cMoved").checked,
+           serves_alcohol: C.work === "cafe" && $("#cAlcohol").checked,
+           outdoor_seating: C.work === "cafe" && $("#cOutdoor").checked };
+}
+
+function stepHTML(s) {
+  const ill = (s.source || "").startsWith("ILLUSTRATIVE");
+  const src = s.source ? `<span class="law ${ill ? "ill" : ""}">— ${esc(ill ? "invented example rule" : s.source)}</span>` : "";
+  return `<div class="step ${s.kind}">${esc(s.text)}${src}</div>`;
+}
+
+async function citizenRun() {
+  try {
+    const r = await api("/api/citizen", { profile: citizenProfile(), city: C.city });
+    C.last = r;
+    S = await api("/api/state"); renderAll();  // keep expert view in sync (case "you")
+    renderCitizen();
+  } catch (e) { toast(e.message, true); }
+}
+
+function renderCitizen() {
+  const r = C.last; if (!r) return;
+  const act = r.items.filter(i => i.status !== "na");
+  const na = r.items.filter(i => i.status === "na");
+  const n = (s) => r.items.filter(i => i.status === s).length;
+  const card = (i, k) => {
+    const icon = { yes: "✓", no: "✕", unclear: "!" }[i.status];
+    const why = i.status === "unclear"
+      ? `<h5>Why one rule says YES</h5>${i.why_yes.map(stepHTML).join("")}<h5>Why another rule says NO</h5>${i.why_no.map(stepHTML).join("")}`
+      : `<h5>Why</h5>${i.why.map(stepHTML).join("")}`;
+    return `<div class="item ${i.status}" data-k="${k}">
+      <div class="ih"><div class="ic">${icon}</div>
+        <div><div class="iq">${esc(i.question)}</div><div class="ia">${esc(i.detail)}</div></div>
+        <span class="ans">${{ yes: "Yes", no: "No", unclear: "Unclear" }[i.status]}</span></div>
+      ${i.status === "yes" ? `<div class="todo">👉 ${esc(i.todo)}</div>` : ""}
+      ${i.notes.map(t => `<div class="note">ℹ️ ${esc(t)}</div>`).join("")}
+      <div class="foot"><button class="linkbtn" data-why="${k}">Why? ▾</button>
+        <button class="linkbtn" data-logic="${esc(i.goal)}">See the logic behind this →</button></div>
+      <div class="why">${why}</div></div>`;
+  };
+  $("#cResult").innerHTML = `
+    <div class="cit-head"><h3>Your checklist for ${esc(r.city_label)}</h3><span class="hint">rules version v${r.version}</span></div>
+    <div class="sum">
+      ${n("unclear") ? `<div class="sumbox u"><b>${n("unclear")}</b><span>unclear: rules contradict</span></div>` : ""}
+      <div class="sumbox y"><b>${n("yes")}</b><span>things you must do</span></div>
+      <div class="sumbox n"><b>${n("no")}</b><span>things you don't need</span></div>
+    </div>
+    ${act.map((i, k) => card(i, k)).join("")}
+    ${na.length ? `<div class="nalist"><b>Not relevant for you:</b> ${na.map(i => esc(i.question.replace(/\?$/, ""))).join(" · ")}</div>` : ""}
+    ${n("unclear") ? `<p class="fine">"Unclear" means the rules in the system contradict each other. An expert can fix that in the <a href="#expert" class="linkbtn" data-goexpert>Expert view</a>, and this checklist updates.</p>` : ""}`;
+}
+
+$("#tabCitizen").onclick = () => setView("citizen");
+$("#tabExpert").onclick = () => setView("expert");
+$("#cGo").onclick = citizenRun;
+document.addEventListener("click", async (e) => {
+  const w = e.target.closest("[data-work]");
+  if (w) { C.work = w.dataset.work; document.querySelectorAll("[data-work]").forEach(b => b.classList.toggle("on", b === w));
+           $("#cafeOnly").style.display = C.work === "cafe" ? "block" : "none"; if (C.last) citizenRun(); return; }
+  const c = e.target.closest("[data-city]");
+  if (c) { C.city = c.dataset.city; renderCityOpts(); if (C.last) citizenRun(); return; }
+  const y = e.target.closest("[data-why]");
+  if (y) { const it = y.closest(".item"); it.classList.toggle("open"); y.textContent = it.classList.contains("open") ? "Hide ▴" : "Why? ▾"; return; }
+  const l = e.target.closest("[data-logic]");
+  if (l) { currentCase = "you"; $("#facts").value = ""; $("#goal").value = l.dataset.logic; setView("expert"); renderCases(); await ask();
+           const conf = S.overview.conflicts.find(x => x.case === "you" && x.literal === l.dataset.logic);
+           if (conf) openConflict(conf.case, conf.standpoint, conf.literal); return; }
+  if (e.target.closest("[data-goexpert]")) { e.preventDefault(); setView("expert"); }
+});
+
+(async function init() {
+  S = await api("/api/state");
+  renderAll();
+  renderCityOpts();
+  $("#goal").value = "must_register_gewerbe(nasrat)";
+  await ask();
+  const c = S.overview.conflicts.find(c => c.case === "nasrat") || S.overview.conflicts[0];
+  if (c) openConflict(c.case, c.standpoint, c.literal);
+  setView(location.hash === "#expert" ? "expert" : "citizen");
+  await citizenRun();
+})();
+</script>
+</body>
+</html>
